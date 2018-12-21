@@ -3,6 +3,8 @@ package com.cloud.sysuser.service.impl;
 import com.alibaba.fastjson.JSONObject;
 import com.cloud.sysconf.common.basePDSC.BaseMybatisServiceImpl;
 import com.cloud.sysconf.common.dto.HeaderInfoDto;
+import com.cloud.sysconf.common.redis.RedisClient;
+import com.cloud.sysconf.common.redis.RedisConfig;
 import com.cloud.sysconf.common.utils.*;
 import com.cloud.sysconf.common.utils.page.PageQuery;
 import com.cloud.sysconf.common.utils.page.PageResult;
@@ -11,8 +13,10 @@ import com.cloud.sysuser.common.DTO.*;
 import com.cloud.sysuser.dao.SysUserDao;
 import com.cloud.sysuser.po.SysUser;
 import com.cloud.sysuser.service.SysUserService;
+import org.apache.commons.lang.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -28,6 +32,15 @@ public class SysUserServiceImpl extends BaseMybatisServiceImpl<SysUser, String, 
 
     @Autowired
     private SysUserDao sysUserDao;
+
+    @Value("${spring.jwt.express}")
+    private String jwtexpress;
+
+    @Value("${spring.jwt.id}")
+    private String jwtid;
+
+    @Autowired
+    private RedisClient redisClient;
 
     @Override
     public ReturnVo getUserInfo(String userId) {
@@ -92,6 +105,83 @@ public class SysUserServiceImpl extends BaseMybatisServiceImpl<SysUser, String, 
             returnVo.code = ReturnVo.ERROR;
             returnVo.responseCode = ResponseCode.Base.ERROR;
         }
+        return returnVo;
+    }
+
+    @Override
+    public ReturnVo userLogin(LoginFormDto loginForm, HeaderInfoDto headerInfoDto) {
+
+        ReturnVo returnVo = new ReturnVo();
+
+        SysUser user = sysUserDao.findByLoginName(loginForm.getLoginName());
+
+        if (user == null) {
+            returnVo.code = ReturnVo.FAIL;
+            returnVo.responseCode = ResponseCode.LoginRegister.USER_NO_EXISTS;
+        } else {
+            String password = loginForm.getPassword() != null ? loginForm.getPassword() : "";
+            if (!PassWordUtil.validatePassword(password, user.getPassword())) {
+                returnVo.code = ReturnVo.FAIL;
+                returnVo.responseCode = ResponseCode.LoginRegister.PWD_INPUT_ERROR;
+            } else {
+                String token = user.getToken();
+                String newToken = JwtUtil.createToken(token, jwtexpress, jwtid);
+
+                String name = user.getLoginName();
+
+                Map<String, String> map = new HashMap<>();
+                map.put("newToken", newToken);
+                map.put("userId", user.getId());
+                map.put("roleId", user.getRoleId());
+                map.put("tokenUpdateTime", DateUtil.DateToString(new Date(), DateUtil.DATE_PATTERN_01));
+                map.put("userName", StringUtils.isNotBlank(user.getName()) ? user.getName() : "");
+
+                redisClient.SetHsetJedis(RedisConfig.USER_TOKEN_DB, token, map);
+
+                logger.info("init login info to redis in db" + RedisConfig.USER_TOKEN_DB);
+
+                JSONObject jsonObject = new JSONObject();
+                jsonObject.put("t", newToken);
+                jsonObject.put("userName",name);
+                returnVo.code = ReturnVo.SUCCESS;
+                returnVo.object = jsonObject;
+            }
+        }
+
+        return returnVo;
+    }
+
+    @Override
+    public ReturnVo addNewUser(LoginFormDto loginForm, HeaderInfoDto headerInfoDto) {
+
+        ReturnVo returnVo = new ReturnVo();
+        if (StringUtils.isBlank(loginForm.getLoginName())) {
+            returnVo.code = ReturnVo.FAIL;
+            returnVo.responseCode = ResponseCode.Parameter.MISSINGUSERNAME;
+            return returnVo;
+        }
+        if(sysUserDao.findByLoginName(loginForm.getLoginName()) != null){
+            returnVo.code = ReturnVo.FAIL;
+            returnVo.responseCode = ResponseCode.LoginRegister.USER_EXIST;
+            return returnVo;
+        }
+        SysUser sysUser = new SysUser();
+        sysUser.setLoginName(loginForm.getLoginName());
+        String password = loginForm.getPassword() != null ? loginForm.getPassword() : "123456";
+        sysUser.setPassword(PassWordUtil.entryptPassword(password));
+        // 设置创建时间和创建者
+        sysUser.preUpdate(headerInfoDto.getCurUserId());
+        //生成token
+        String token = StringUtil.getToken();
+        sysUser.setToken(token);
+        sysUser.preInsert(headerInfoDto.getCurUserId(), headerInfoDto.getPanId());
+        sysUserDao.add(sysUser);
+
+        Map<String, String> map = new HashMap<>();
+        map.put("id", sysUser.getId());
+        map.put("loginName", sysUser.getLoginName());
+        returnVo.code = ReturnVo.SUCCESS;
+        returnVo.object = JSONObject.toJSON(map);
         return returnVo;
     }
 

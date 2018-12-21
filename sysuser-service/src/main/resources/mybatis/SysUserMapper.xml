@@ -16,7 +16,6 @@
 		<result column="phone" property="phone"/>
 		<result column="mobile" property="mobile"/>
 		<result column="photo" property="photo"/>
-		<result column="login_id" property="loginId"/>
 		<result column="login_date" property="loginDate"/>
 		<result column="login_flag" property="loginFlag"/>
 		<result column="token" property="token"/>
@@ -34,11 +33,9 @@
 	</resultMap>
 
 	<select id="findByLoginName" resultMap="sysUserMap">
-		SELECT t.*, GROUP_CONCAT(ur.role_id) roleId, au.id agentUser, mu.id merchantUser, IFNULL(au.opt_status, mu.opt_status) optStatus FROM sys_user t
+		SELECT t.*, GROUP_CONCAT(ur.role_id) roleId FROM sys_user t
 			LEFT JOIN sys_user_role ur ON ur.user_id = t.id
-			LEFT JOIN agent_user au ON au.sys_user_id = t.id
-			LEFT JOIN merchant_user mu ON mu.sys_user_id = t.id
-		WHERE t.login_name = #{loginName} group by ur.role_id, t.id, au.id, mu.id
+		WHERE t.login_name = #{loginName} group by ur.role_id
 	</select>
 
 	<select id="findByToken" resultMap="sysUserMap">

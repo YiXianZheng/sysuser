@@ -16,6 +16,4 @@ public class LoginFormDto extends BaseDto {
     private String loginName;
 
     private String password;
-
-    private String type;
 }

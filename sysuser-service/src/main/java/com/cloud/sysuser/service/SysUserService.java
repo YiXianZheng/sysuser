@@ -45,5 +45,21 @@ public interface SysUserService extends BaseMybatisService<SysUser, String> {
      * @return
      */
     ReturnVo listForTablePage(PageQuery pageQuery, HeaderInfoDto headerInfoDto);
+
+    /**
+     * 用户登录
+     * @param loginForm
+     * @param headerInfoDto
+     * @return
+     */
+    ReturnVo userLogin(LoginFormDto loginForm, HeaderInfoDto headerInfoDto);
+
+    /**
+     * 用户注册
+     * @param loginForm
+     * @param headerInfoDto
+     * @return
+     */
+    ReturnVo addNewUser(LoginFormDto loginForm, HeaderInfoDto headerInfoDto);
 }
 

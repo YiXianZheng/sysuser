@@ -7,7 +7,9 @@ import com.cloud.sysconf.common.utils.StringUtil;
 import com.cloud.sysconf.common.utils.page.PageQuery;
 import com.cloud.sysconf.common.vo.ApiResponse;
 import com.cloud.sysconf.common.vo.ReturnVo;
+import com.cloud.sysuser.common.DTO.LoginFormDto;
 import com.cloud.sysuser.service.SysUserService;
+import org.apache.commons.lang.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
@@ -22,6 +24,47 @@ public class SysUserController extends BaseController {
 
     @Autowired
     private SysUserService sysUserService;
+
+    @PostMapping("/register")
+    public ApiResponse userRegister(@RequestBody LoginFormDto loginFormDto, @RequestHeader HttpHeaders headers) {
+
+        HeaderInfoDto headerInfoDto = this.getHeaderInfo(headers);
+
+        try {
+            ReturnVo returnVo = sysUserService.addNewUser(loginFormDto, headerInfoDto);
+            return toApiResponse(returnVo);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ApiResponse.creatFail(ResponseCode.Base.SYSTEM_ERR);
+        }
+    }
+
+    /**
+     * 用户登录接口
+     * @param loginForm
+     * @param headers
+     * @return
+     */
+    @PostMapping(value = "/login")
+    public ApiResponse userLogin(@RequestBody LoginFormDto loginForm, @RequestHeader HttpHeaders headers) {
+
+        HeaderInfoDto headerInfoDto = this.getHeaderInfo(headers);
+
+        if(StringUtils.isBlank(loginForm.getLoginName())){
+            return ApiResponse.creatFail(ResponseCode.Parameter.MISSINGUSERNAME);
+        }
+        if(StringUtils.isBlank(loginForm.getPassword())){
+            return ApiResponse.creatFail(ResponseCode.Parameter.MISSINGPASSWORD);
+        }
+
+        try{
+            ReturnVo returnVo = sysUserService.userLogin(loginForm, headerInfoDto);
+            return this.toApiResponse(returnVo);
+        } catch (Exception e){
+            e.printStackTrace();
+            return ApiResponse.creatFail(ResponseCode.Base.SYSTEM_ERR);
+        }
+    }
 
     /**
      * 获取用户信息
@@ -38,6 +81,7 @@ public class SysUserController extends BaseController {
                 return ApiResponse.creatFail(ResponseCode.Parameter.LACK);
             }
         } catch (Exception e){
+            e.printStackTrace();
             return ApiResponse.creatFail(ResponseCode.Base.SYSTEM_ERR);
         }
     }
@@ -83,6 +127,7 @@ public class SysUserController extends BaseController {
             ReturnVo returnVo = sysUserService.listForTablePage(pageQuery, headerInfoDto);
             return this.toApiResponse(returnVo);
         } catch (Exception e) {
+            e.printStackTrace();
             return ApiResponse.creatFail(ResponseCode.Base.SYSTEM_ERR);
         }
     }
